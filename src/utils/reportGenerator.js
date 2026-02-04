@@ -3,6 +3,7 @@
  * Generate professional engineering reports with calculations and graphs
  * 
  * @author Concreate Club, IIT Indore
+ * @contributor Rajnish
  */
 
 import jsPDF from 'jspdf';
@@ -15,11 +16,13 @@ export class ReportGenerator {
   constructor() {
     this.pdf = null;
     this.pageNumber = 1;
+    this.totalPages = 1;
     this.yPosition = 40;
     this.margin = 20;
     this.pageWidth = 210; // A4
     this.pageHeight = 297;
     this.contentWidth = this.pageWidth - 2 * this.margin;
+    this.chartImages = []; // Store chart images for embedding
   }
 
   /**
@@ -28,6 +31,7 @@ export class ReportGenerator {
   initialize(title = 'Engineering Calculation Report') {
     this.pdf = new jsPDF('p', 'mm', 'a4');
     this.pageNumber = 1;
+    this.totalPages = 1;
     this.yPosition = 40;
     
     this.addHeader(title);
@@ -61,15 +65,17 @@ export class ReportGenerator {
   }
 
   /**
-   * Add footer to current page
+   * Add footer to current page (with page X of Y)
    */
-  addFooter() {
-    const y = this.pageHeight - 15;
+  addFooter(currentPage = null, totalPages = null) {
+    const y = this.pageHeight - 12;
+    const pageNum = currentPage || this.pageNumber;
+    const total = totalPages || this.totalPages;
     
     this.pdf.setFontSize(8);
     this.pdf.setTextColor(150, 150, 150);
     
-    // Date
+    // Date on left
     const date = new Date().toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
@@ -77,11 +83,30 @@ export class ReportGenerator {
     });
     this.pdf.text(date, this.margin, y);
     
-    // Page number
-    this.pdf.text(`Page ${this.pageNumber}`, this.pageWidth - this.margin, y, { align: 'right' });
+    // Page number on right (Page X of Y)
+    this.pdf.text(`Page ${pageNum} of ${total}`, this.pageWidth - this.margin, y, { align: 'right' });
     
-    // Center text
-    this.pdf.text('© 2026 CiviCalc | Concreate Club, IIT Indore', this.pageWidth / 2, y, { align: 'center' });
+    // Made with love by Rajnish - Centered
+    this.pdf.setFontSize(9);
+    this.pdf.setTextColor(239, 68, 68); // Red heart color
+    this.pdf.text('Made with ❤ by Rajnish', this.pageWidth / 2, y - 4, { align: 'center' });
+    
+    // CiviCalc credit
+    this.pdf.setFontSize(7);
+    this.pdf.setTextColor(150, 150, 150);
+    this.pdf.text('CiviCalc | Concreate Club, IIT Indore', this.pageWidth / 2, y + 2, { align: 'center' });
+  }
+
+  /**
+   * Add footer to all pages (call this before saving)
+   */
+  addFooterToAllPages() {
+    const totalPages = this.pdf.internal.getNumberOfPages();
+    
+    for (let i = 1; i <= totalPages; i++) {
+      this.pdf.setPage(i);
+      this.addFooter(i, totalPages);
+    }
   }
 
   /**
@@ -89,9 +114,9 @@ export class ReportGenerator {
    */
   checkPageBreak(requiredSpace = 30) {
     if (this.yPosition + requiredSpace > this.pageHeight - 25) {
-      this.addFooter();
       this.pdf.addPage();
       this.pageNumber++;
+      this.totalPages++;
       this.yPosition = 25;
       return true;
     }
@@ -346,7 +371,7 @@ export class ReportGenerator {
    * Finalize and download the PDF
    */
   download(filename = 'CiviCalc_Report.pdf') {
-    this.addFooter();
+    this.addFooterToAllPages();
     this.pdf.save(filename);
   }
 
@@ -354,7 +379,7 @@ export class ReportGenerator {
    * Get PDF as blob
    */
   getBlob() {
-    this.addFooter();
+    this.addFooterToAllPages();
     return this.pdf.output('blob');
   }
 
@@ -362,8 +387,51 @@ export class ReportGenerator {
    * Get PDF as base64
    */
   getBase64() {
-    this.addFooter();
+    this.addFooterToAllPages();
     return this.pdf.output('datauristring');
+  }
+  
+  /**
+   * Add a chart image from Plotly
+   * @param {string} imageData - Base64 encoded image data
+   * @param {object} options - Options for the image
+   */
+  addChartImage(imageData, options = {}) {
+    const {
+      width = 170,
+      height = 100,
+      caption = null,
+      title = null
+    } = options;
+
+    this.checkPageBreak(height + 30);
+
+    if (title) {
+      this.addSubsectionTitle(title);
+    }
+
+    try {
+      const x = (this.pageWidth - width) / 2;
+      
+      // Add border around chart
+      this.pdf.setDrawColor(200, 200, 200);
+      this.pdf.setLineWidth(0.3);
+      this.pdf.rect(x - 2, this.yPosition - 2, width + 4, height + 4);
+      
+      this.pdf.addImage(imageData, 'PNG', x, this.yPosition, width, height);
+      this.yPosition += height + 5;
+
+      if (caption) {
+        this.pdf.setFontSize(9);
+        this.pdf.setFont('helvetica', 'italic');
+        this.pdf.setTextColor(100, 100, 100);
+        this.pdf.text(caption, this.pageWidth / 2, this.yPosition, { align: 'center' });
+        this.yPosition += 10;
+      }
+    } catch (error) {
+      console.error('Error adding chart image to PDF:', error);
+      this.addText('Chart image could not be rendered', { color: [200, 100, 100] });
+    }
   }
 }
 
@@ -465,9 +533,195 @@ export async function captureChartImage(plotlyRef) {
   }
 }
 
+/**
+ * Generate Concrete Mix Design Report (IS 10262:2019)
+ */
+export function generateConcreteReport(inputs, results, chartImage = null) {
+  const report = new ReportGenerator();
+  report.initialize('Concrete Mix Design Report - IS 10262:2019');
+
+  // Project info
+  report.addSectionTitle('1. Design Parameters');
+  report.addKeyValue('Target Grade', inputs.grade);
+  report.addKeyValue('Exposure Condition', inputs.exposureCondition);
+  report.addKeyValue('Max Aggregate Size', inputs.maxAggregateSize, 'mm');
+  report.addKeyValue('Cement Type', inputs.cementType);
+  report.addKeyValue('Workability (Slump)', inputs.slump, 'mm');
+  report.addKeyValue('Aggregate Type', inputs.aggregateType);
+  if (inputs.useAdmixture && inputs.admixtureDosage > 0) {
+    report.addKeyValue('Admixture Type', inputs.admixtureType || 'Superplasticizer');
+    report.addKeyValue('Admixture Dosage', inputs.admixtureDosage, '%');
+  }
+
+  report.addSectionTitle('2. Design Calculations');
+  report.addSubsectionTitle('2.1 Target Mean Strength');
+  report.addKeyValue('Characteristic Strength (fck)', results.targetStrength?.fck, 'MPa');
+  report.addKeyValue('Standard Deviation', results.targetStrength?.stdDev, 'MPa');
+  report.addKeyValue('Target Mean Strength (fck\')', results.targetStrength?.targetMean, 'MPa');
+  report.addText(`Formula: fck' = fck + 1.65 × σ = ${results.targetStrength?.fck} + 1.65 × ${results.targetStrength?.stdDev} = ${results.targetStrength?.targetMean} MPa`);
+
+  report.addSubsectionTitle('2.2 Water-Cement Ratio');
+  report.addKeyValue('Maximum W/C (Durability)', results.wcRatio?.maxWCDurability);
+  report.addKeyValue('W/C for Target Strength', results.wcRatio?.wcForStrength);
+  report.addKeyValue('Adopted W/C Ratio', results.wcRatio?.adopted);
+
+  report.addSubsectionTitle('2.3 Water Content');
+  report.addKeyValue('Base Water Content', results.waterContent?.base, 'kg/m³');
+  if (results.waterContent?.slumpAdjustment) {
+    report.addKeyValue('Slump Adjustment', results.waterContent?.slumpAdjustment, 'kg/m³');
+  }
+  if (results.waterContent?.admixReduction) {
+    report.addKeyValue('Admixture Reduction', results.waterContent?.admixReduction, 'kg/m³');
+  }
+  report.addKeyValue('Final Water Content', results.waterContent?.final, 'kg/m³');
+
+  report.addSectionTitle('3. Mix Proportions (per m³)');
+  const mixData = [
+    ['Water', results.mixPerCubicMeter?.water?.toFixed(1) || '-', 'kg'],
+    ['Cement', results.mixPerCubicMeter?.cement?.toFixed(1) || '-', 'kg'],
+    ['Fine Aggregate', results.mixPerCubicMeter?.fineAggregate?.toFixed(1) || '-', 'kg'],
+    ['Coarse Aggregate', results.mixPerCubicMeter?.coarseAggregate?.toFixed(1) || '-', 'kg']
+  ];
+  if (results.mixPerCubicMeter?.admixture) {
+    mixData.push(['Admixture', results.mixPerCubicMeter?.admixture?.toFixed(2) || '-', 'kg']);
+  }
+  report.addDataTable(['Material', 'Quantity', 'Unit'], mixData, { columnWidths: [60, 50, 40] });
+
+  report.addSubsectionTitle('Mix Ratio (by weight)');
+  report.addKeyValue('Cement : FA : CA', results.mixRatio?.byWeight || '-');
+  report.addKeyValue('Water-Cement Ratio', results.wcRatio?.adopted?.toFixed(2) || '-');
+
+  if (results.estimatedCost) {
+    report.addSectionTitle('4. Cost Estimation');
+    report.addKeyValue('Estimated Cost per m³', results.estimatedCost, '₹');
+  }
+
+  // Add chart if provided
+  if (chartImage) {
+    report.addSectionTitle('5. Mix Composition Chart');
+    report.addChartImage(chartImage, {
+      width: 140,
+      height: 100,
+      caption: 'Figure 1: Mix Design Composition by Weight'
+    });
+  }
+
+  report.addSectionTitle('Notes & References');
+  report.addText('1. Mix design as per IS 10262:2019 - Concrete Mix Proportioning - Guidelines');
+  report.addText('2. Exposure conditions as per IS 456:2000 Table 3 & 5');
+  report.addText('3. Trial mix adjustments may be required based on actual site conditions');
+  report.addText('4. Minimum cement content and maximum W/C ratio as per IS 456:2000');
+
+  return report;
+}
+
+/**
+ * Generate CPM/PERT Analysis Report
+ */
+export function generateCPMReport(activities, results, analysisType = 'cpm', ganttImage = null) {
+  const report = new ReportGenerator();
+  const title = analysisType.toUpperCase() === 'PERT' 
+    ? 'PERT Analysis Report' 
+    : 'Critical Path Method (CPM) Report';
+  report.initialize(title);
+
+  report.addSectionTitle('1. Project Activities');
+  const activityData = activities.map((act, idx) => [
+    idx + 1,
+    act.id || act.name,
+    act.name,
+    (act.predecessors || []).join(', ') || '-',
+    analysisType === 'pert' 
+      ? `${act.optimistic || '-'}/${act.mostLikely || act.duration}/${act.pessimistic || '-'}`
+      : act.duration
+  ]);
+  
+  const headers = analysisType === 'pert'
+    ? ['#', 'ID', 'Activity', 'Predecessors', 'Duration (O/M/P)']
+    : ['#', 'ID', 'Activity', 'Predecessors', 'Duration'];
+  
+  report.addDataTable(headers, activityData, { columnWidths: [15, 20, 60, 40, 40] });
+
+  report.addSectionTitle('2. Network Analysis Results');
+  
+  if (results.activities && results.activities.length > 0) {
+    const scheduleData = results.activities.map(act => [
+      act.id || act.name,
+      act.ES?.toFixed(1) || '0',
+      act.EF?.toFixed(1) || act.duration?.toString(),
+      act.LS?.toFixed(1) || '0',
+      act.LF?.toFixed(1) || act.duration?.toString(),
+      act.TF?.toFixed(1) || act.totalFloat?.toFixed(1) || '0',
+      act.isCritical ? '✓' : '-'
+    ]);
+    
+    report.addDataTable(
+      ['Activity', 'ES', 'EF', 'LS', 'LF', 'Float', 'Critical'],
+      scheduleData,
+      { columnWidths: [30, 20, 20, 20, 20, 25, 25] }
+    );
+  }
+
+  report.addSectionTitle('3. Critical Path');
+  report.addKeyValue('Project Duration', results.projectDuration, 'days');
+  
+  if (results.criticalPath) {
+    const cpText = Array.isArray(results.criticalPath) 
+      ? results.criticalPath.join(' → ') 
+      : results.criticalPath;
+    report.addKeyValue('Critical Path', cpText);
+  }
+
+  if (analysisType === 'pert' && results.probabilityAnalysis) {
+    report.addSectionTitle('4. Probability Analysis (PERT)');
+    report.addKeyValue('Expected Duration (Te)', results.projectDuration, 'days');
+    report.addKeyValue('Project Variance (σ²)', results.probabilityAnalysis.variance?.toFixed(2) || '-');
+    report.addKeyValue('Standard Deviation (σ)', results.probabilityAnalysis.stdDev?.toFixed(2) || '-', 'days');
+    
+    if (results.probabilityAnalysis.confidenceIntervals) {
+      report.addSubsectionTitle('Confidence Intervals');
+      report.addKeyValue('68% Probability (±1σ)', 
+        `${results.probabilityAnalysis.confidenceIntervals['68%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['68%']?.max?.toFixed(1)}`, 
+        'days'
+      );
+      report.addKeyValue('95% Probability (±2σ)', 
+        `${results.probabilityAnalysis.confidenceIntervals['95%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['95%']?.max?.toFixed(1)}`, 
+        'days'
+      );
+      report.addKeyValue('99.7% Probability (±3σ)', 
+        `${results.probabilityAnalysis.confidenceIntervals['99.7%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['99.7%']?.max?.toFixed(1)}`, 
+        'days'
+      );
+    }
+  }
+
+  // Add Gantt chart if provided
+  if (ganttImage) {
+    report.addSectionTitle(analysisType === 'pert' ? '5. Gantt Chart' : '4. Gantt Chart');
+    report.addChartImage(ganttImage, {
+      width: 170,
+      height: 90,
+      caption: 'Figure 1: Project Schedule - Gantt Chart'
+    });
+  }
+
+  report.addSectionTitle('Notes');
+  report.addText('ES = Early Start, EF = Early Finish, LS = Late Start, LF = Late Finish');
+  report.addText('Float = Total Float (Slack) = LS - ES = LF - EF');
+  report.addText('Critical activities have zero float and determine the minimum project duration');
+  if (analysisType === 'pert') {
+    report.addText('PERT uses weighted average: Te = (O + 4M + P) / 6');
+    report.addText('Variance for each activity: σ² = ((P - O) / 6)²');
+  }
+
+  return report;
+}
+
 export default {
   ReportGenerator,
   generateBeamReport,
   generateGeotechReport,
+  generateConcreteReport,
+  generateCPMReport,
   captureChartImage
 };

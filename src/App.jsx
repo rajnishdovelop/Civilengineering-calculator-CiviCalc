@@ -10,6 +10,8 @@ const FluidPage = React.lazy(() => import('./pages/FluidPage'));
 const TransportPage = React.lazy(() => import('./pages/TransportPage'));
 const EnvironmentalPage = React.lazy(() => import('./pages/EnvironmentalPage'));
 const SurveyingPage = React.lazy(() => import('./pages/SurveyingPage'));
+const ConcretePage = React.lazy(() => import('./pages/ConcretePage'));
+const ConstructionPage = React.lazy(() => import('./pages/ConstructionPage'));
 const About = React.lazy(() => import('./pages/About'));
 
 // Loading component
@@ -60,6 +62,16 @@ function App() {
           <Route path="surveying" element={
             <Suspense fallback={<PageLoader />}>
               <SurveyingPage />
+            </Suspense>
+          } />
+          <Route path="concrete" element={
+            <Suspense fallback={<PageLoader />}>
+              <ConcretePage />
+            </Suspense>
+          } />
+          <Route path="construction" element={
+            <Suspense fallback={<PageLoader />}>
+              <ConstructionPage />
             </Suspense>
           } />
           <Route path="about" element={

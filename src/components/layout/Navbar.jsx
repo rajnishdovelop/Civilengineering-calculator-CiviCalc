@@ -10,7 +10,9 @@ import {
   Menu,
   X,
   Calculator,
-  Home
+  Home,
+  Boxes,
+  Network
 } from 'lucide-react';
 
 const navItems = [
@@ -21,6 +23,8 @@ const navItems = [
   { path: '/transport', label: 'Transportation', icon: Car, color: 'text-emerald-600' },
   { path: '/environmental', label: 'Environmental', icon: Trees, color: 'text-green-600' },
   { path: '/surveying', label: 'Surveying', icon: MapPin, color: 'text-purple-600' },
+  { path: '/concrete', label: 'Concrete', icon: Boxes, color: 'text-slate-600' },
+  { path: '/construction', label: 'CPM/PERT', icon: Network, color: 'text-rose-600' },
 ];
 
 function Navbar() {

@@ -11,7 +11,9 @@ import {
   Calculator,
   Zap,
   Lock,
-  Download
+  Download,
+  Boxes,
+  Network
 } from 'lucide-react';
 
 const modules = [
@@ -23,7 +25,7 @@ const modules = [
     path: '/structural',
     color: 'from-blue-500 to-blue-700',
     bgColor: 'bg-blue-50',
-    features: ['Simply Supported Beams', 'Point & UDL Loads', 'SFD/BMD Diagrams', 'Deflection Analysis']
+    features: ['Simply Supported Beams', 'Cantilever & Overhanging', 'SFD/BMD Diagrams', 'Deflection Analysis']
   },
   {
     id: 'geotech',
@@ -74,6 +76,26 @@ const modules = [
     color: 'from-purple-500 to-purple-700',
     bgColor: 'bg-purple-50',
     features: ['Rise & Fall Method', 'Traverse Computation', 'Area Calculation', 'Curve Setting']
+  },
+  {
+    id: 'concrete',
+    title: 'Concrete Technology',
+    description: 'IS 10262:2019 concrete mix design, trial mix calculations, cost estimation',
+    icon: Boxes,
+    path: '/concrete',
+    color: 'from-slate-500 to-slate-700',
+    bgColor: 'bg-slate-50',
+    features: ['IS 10262:2019', 'Mix Proportioning', 'Trial Mix Design', 'Cost Estimation']
+  },
+  {
+    id: 'construction',
+    title: 'Construction Management',
+    description: 'CPM/PERT network analysis, critical path, project scheduling',
+    icon: Network,
+    path: '/construction',
+    color: 'from-rose-500 to-rose-700',
+    bgColor: 'bg-rose-50',
+    features: ['CPM Analysis', 'PERT Method', 'Gantt Charts', 'Critical Path']
   }
 ];
 

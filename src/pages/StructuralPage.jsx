@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, Trash2, Calculator, FileDown, RotateCcw, Building2 } from 'lucide-react';
-import { BeamAnalyzer, calculateSectionProperties } from '../utils/calculators/structural';
+import { BeamAnalyzer, calculateSectionProperties, getSupportTypeOptions, SUPPORT_TYPES } from '../utils/calculators/structural';
 import { BeamCharts } from '../components/charts/AnalysisGraph';
 import { FormInput, FormSelect, Button, Card, ResultDisplay, Tabs, Alert } from '../components/ui/FormElements';
 import { useBeamStore } from '../store';
@@ -19,11 +19,16 @@ const sectionTypes = [
   { value: 'custom', label: 'Custom (Enter I directly)' }
 ];
 
+// Support type options
+const supportTypeOptions = getSupportTypeOptions();
+
 function StructuralPage() {
   const {
     span, E, I, sectionType, sectionDimensions, loads, results,
+    supportType, supportPositions,
     setSpan, setE, setI, setSectionType, setSectionDimensions,
-    addLoad, updateLoad, removeLoad, clearLoads, setResults, reset
+    addLoad, updateLoad, removeLoad, clearLoads, setResults, reset,
+    setSupportType, setSupportPositions
   } = useBeamStore();
 
   const [activeTab, setActiveTab] = useState('input');
@@ -52,6 +57,13 @@ function StructuralPage() {
       const IValue = sectionType === 'custom' ? I : sectionProps.momentOfInertia;
       
       const analyzer = new BeamAnalyzer(span, EInPa, IValue, 500);
+      analyzer.setSupportType(supportType);
+      
+      // Set support positions for overhanging beams
+      if (supportType === SUPPORT_TYPES.OVERHANGING && supportPositions) {
+        analyzer.setSupportPositions(supportPositions.a, supportPositions.b);
+      }
+      
       analyzer.setLoads(loads);
       
       const analysisResults = analyzer.analyze();
@@ -63,7 +75,7 @@ function StructuralPage() {
     } finally {
       setIsCalculating(false);
     }
-  }, [span, E, I, sectionType, sectionProps.momentOfInertia, loads, setResults]);
+  }, [span, E, I, sectionType, sectionProps.momentOfInertia, loads, supportType, supportPositions, setResults]);
 
   const handleAddLoad = () => {
     if (newLoad.type === 'point' || newLoad.type === 'moment') {
@@ -141,6 +153,120 @@ function StructuralPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card title="Beam Properties">
               <div className="space-y-4">
+                <FormSelect
+                  label="Support Condition"
+                  name="supportType"
+                  value={supportType}
+                  onChange={(e) => setSupportType(e.target.value)}
+                  options={supportTypeOptions}
+                  helpText="Select beam boundary conditions"
+                />
+                
+                {/* Beam Schematic */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2 font-medium">Beam Schematic</p>
+                  <div className="relative h-20 flex items-center justify-center">
+                    {/* Beam line */}
+                    <div className="absolute top-1/2 left-8 right-8 h-2 bg-blue-500 rounded transform -translate-y-1/2"></div>
+                    
+                    {/* Support icons based on type */}
+                    {supportType === SUPPORT_TYPES.SIMPLY_SUPPORTED && (
+                      <>
+                        {/* Triangle (Pin) at A */}
+                        <div className="absolute left-8 bottom-4">
+                          <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-b-[15px] border-l-transparent border-r-transparent border-b-amber-500"></div>
+                        </div>
+                        {/* Roller at B */}
+                        <div className="absolute right-8 bottom-4">
+                          <div className="w-5 h-5 bg-amber-500 rounded-full"></div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {supportType === SUPPORT_TYPES.CANTILEVER && (
+                      <>
+                        {/* Fixed support at A */}
+                        <div className="absolute left-4 top-2 bottom-2 w-3 bg-gray-600 rounded"></div>
+                        <div className="absolute left-3 top-2 bottom-2 flex flex-col justify-between">
+                          {[...Array(5)].map((_, i) => (
+                            <div key={i} className="w-2 h-[2px] bg-gray-600 -rotate-45"></div>
+                          ))}
+                        </div>
+                        {/* Free end indicator */}
+                        <div className="absolute right-6 text-xs text-gray-500">Free End</div>
+                      </>
+                    )}
+                    
+                    {supportType === SUPPORT_TYPES.OVERHANGING && (
+                      <>
+                        {/* Pin support at position a */}
+                        <div className="absolute left-16 bottom-4">
+                          <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-b-[15px] border-l-transparent border-r-transparent border-b-amber-500"></div>
+                        </div>
+                        {/* Roller support at position b */}
+                        <div className="absolute right-16 bottom-4">
+                          <div className="w-5 h-5 bg-amber-500 rounded-full"></div>
+                        </div>
+                        {/* Overhang indicators */}
+                        <div className="absolute left-5 text-xs text-gray-500">Overhang</div>
+                        <div className="absolute right-3 text-xs text-gray-500">Overhang</div>
+                      </>
+                    )}
+                    
+                    {supportType === SUPPORT_TYPES.FIXED_BOTH && (
+                      <>
+                        {/* Fixed support at A */}
+                        <div className="absolute left-4 top-2 bottom-2 w-3 bg-gray-600 rounded"></div>
+                        {/* Fixed support at B */}
+                        <div className="absolute right-4 top-2 bottom-2 w-3 bg-gray-600 rounded"></div>
+                      </>
+                    )}
+                    
+                    {supportType === SUPPORT_TYPES.PROPPED_CANTILEVER && (
+                      <>
+                        {/* Fixed support at A */}
+                        <div className="absolute left-4 top-2 bottom-2 w-3 bg-gray-600 rounded"></div>
+                        {/* Roller at B */}
+                        <div className="absolute right-8 bottom-4">
+                          <div className="w-5 h-5 bg-amber-500 rounded-full"></div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Support positions for overhanging beam */}
+                {supportType === SUPPORT_TYPES.OVERHANGING && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormInput
+                      label="Left Support Position (a)"
+                      name="supportA"
+                      value={supportPositions?.a || span * 0.2}
+                      onChange={(e) => setSupportPositions({ 
+                        a: parseFloat(e.target.value) || 0, 
+                        b: supportPositions?.b || span * 0.8 
+                      })}
+                      unit="m"
+                      min={0}
+                      max={span}
+                      helpText="Distance from left end"
+                    />
+                    <FormInput
+                      label="Right Support Position (b)"
+                      name="supportB"
+                      value={supportPositions?.b || span * 0.8}
+                      onChange={(e) => setSupportPositions({ 
+                        a: supportPositions?.a || span * 0.2, 
+                        b: parseFloat(e.target.value) || 0 
+                      })}
+                      unit="m"
+                      min={0}
+                      max={span}
+                      helpText="Distance from left end"
+                    />
+                  </div>
+                )}
+                
                 <FormInput
                   label="Span Length"
                   name="span"
