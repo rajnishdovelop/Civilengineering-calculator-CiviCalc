@@ -5,6 +5,7 @@ import AnalysisGraph from '../components/charts/AnalysisGraph';
 import { FormInput, FormSelect, Button, Card, ResultDisplay, Tabs, Alert } from '../components/ui/FormElements';
 import { useConcreteStore } from '../store';
 import { generateConcreteReport } from '../utils/reportGenerator';
+import Plotly from 'plotly.js-dist-min';
 
 const options = getConcreteOptions();
 
@@ -23,6 +24,7 @@ function ConcretePage() {
   const [activeTab, setActiveTab] = useState('input');
   const [error, setError] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState({});
 
   const handleCalculate = useCallback(() => {
@@ -42,8 +44,32 @@ function ConcretePage() {
 
   const handleExportPDF = async () => {
     if (!results) return;
-    const report = generateConcreteReport(results, mixDesign);
-    report.download('CiviCalc_Concrete_Mix_Design.pdf');
+    
+    setIsExporting(true);
+    try {
+      // Try to capture pie chart image
+      let chartImage = null;
+      try {
+        const chartElement = document.querySelector('.mix-chart-container .js-plotly-plot');
+        if (chartElement) {
+          chartImage = await Plotly.toImage(chartElement, {
+            format: 'png',
+            width: 800,
+            height: 600,
+            scale: 2
+          });
+        }
+      } catch (chartError) {
+        console.warn('Could not capture chart:', chartError);
+      }
+
+      const report = generateConcreteReport(mixDesign, results, chartImage);
+      report.download(`CiviCalc_Concrete_Mix_Design_${mixDesign.targetGrade}.pdf`);
+    } catch (err) {
+      setError('Failed to export PDF: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleReset = () => {
@@ -363,11 +389,13 @@ function ConcretePage() {
 
               {/* Pie Chart */}
               <Card title="Mix Composition">
-                <AnalysisGraph
-                  data={mixChartData}
-                  layout={{ showlegend: true }}
-                  height={300}
-                />
+                <div className="mix-chart-container">
+                  <AnalysisGraph
+                    data={mixChartData}
+                    layout={{ showlegend: true }}
+                    height={300}
+                  />
+                </div>
               </Card>
 
               {/* Trial Mix Calculator */}
@@ -448,8 +476,13 @@ function ConcretePage() {
               <Button variant="outline" onClick={() => setActiveTab('input')}>
                 Modify Inputs
               </Button>
-              <Button onClick={handleExportPDF} icon={<FileDown className="w-4 h-4" />}>
-                Export PDF Report
+              <Button 
+                onClick={handleExportPDF} 
+                icon={<FileDown className="w-4 h-4" />}
+                loading={isExporting}
+                disabled={isExporting}
+              >
+                {isExporting ? 'Generating PDF...' : 'Export PDF Report'}
               </Button>
             </div>
           </div>

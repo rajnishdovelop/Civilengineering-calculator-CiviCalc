@@ -56,6 +56,27 @@
   <body>
     <div id="root"></div>
     
+    <!-- Clear old storage that might cause issues -->
+    <script>
+      (function() {
+        try {
+          var version = localStorage.getItem('civicalc-version');
+          if (version !== '2.1') {
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (key && key.indexOf('civicalc') !== -1) {
+                keys.push(key);
+              }
+            }
+            keys.forEach(function(k) { localStorage.removeItem(k); });
+            localStorage.setItem('civicalc-version', '2.1');
+            console.log('Cleared old CiviCalc storage');
+          }
+        } catch(e) { console.warn('Storage clear failed:', e); }
+      })();
+    </script>
+    
     <!-- Initial loading screen -->
     <div class="initial-loader">
       <div class="loader-content">

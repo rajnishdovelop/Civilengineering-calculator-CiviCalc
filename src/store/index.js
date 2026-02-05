@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SUPPORT_TYPES } from '../utils/calculators/structural';
+
+// Define SUPPORT_TYPES locally to avoid circular dependency
+const SUPPORT_TYPES = {
+  SIMPLY_SUPPORTED: 'simply_supported',
+  CANTILEVER: 'cantilever',
+  OVERHANGING: 'overhanging',
+  FIXED_BOTH: 'fixed_both',
+  PROPPED_CANTILEVER: 'propped_cantilever'
+};
 
 /**
  * App Store - Global application state

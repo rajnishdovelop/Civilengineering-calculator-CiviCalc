@@ -86,10 +86,10 @@ export class ReportGenerator {
     // Page number on right (Page X of Y)
     this.pdf.text(`Page ${pageNum} of ${total}`, this.pageWidth - this.margin, y, { align: 'right' });
     
-    // Made with love by Rajnish - Centered
+    // Built with love by Rajnish - Centered
     this.pdf.setFontSize(9);
     this.pdf.setTextColor(239, 68, 68); // Red heart color
-    this.pdf.text('Made with ❤ by Rajnish', this.pageWidth / 2, y - 4, { align: 'center' });
+    this.pdf.text('Built with ❤ by Rajnish', this.pageWidth / 2, y - 4, { align: 'center' });
     
     // CiviCalc credit
     this.pdf.setFontSize(7);
@@ -540,60 +540,48 @@ export function generateConcreteReport(inputs, results, chartImage = null) {
   const report = new ReportGenerator();
   report.initialize('Concrete Mix Design Report - IS 10262:2019');
 
-  // Project info
+  // Project info - using actual property names from mixDesign
   report.addSectionTitle('1. Design Parameters');
-  report.addKeyValue('Target Grade', inputs.grade);
+  report.addKeyValue('Target Grade', inputs.targetGrade || inputs.grade);
   report.addKeyValue('Exposure Condition', inputs.exposureCondition);
   report.addKeyValue('Max Aggregate Size', inputs.maxAggregateSize, 'mm');
   report.addKeyValue('Cement Type', inputs.cementType);
-  report.addKeyValue('Workability (Slump)', inputs.slump, 'mm');
+  report.addKeyValue('Workability (Slump)', inputs.workability || inputs.slump, 'mm');
   report.addKeyValue('Aggregate Type', inputs.aggregateType);
-  if (inputs.useAdmixture && inputs.admixtureDosage > 0) {
-    report.addKeyValue('Admixture Type', inputs.admixtureType || 'Superplasticizer');
+  report.addKeyValue('Fine Aggregate Zone', inputs.sandZone);
+  if (inputs.admixture && inputs.admixtureDosage > 0) {
     report.addKeyValue('Admixture Dosage', inputs.admixtureDosage, '%');
   }
 
   report.addSectionTitle('2. Design Calculations');
   report.addSubsectionTitle('2.1 Target Mean Strength');
-  report.addKeyValue('Characteristic Strength (fck)', results.targetStrength?.fck, 'MPa');
-  report.addKeyValue('Standard Deviation', results.targetStrength?.stdDev, 'MPa');
-  report.addKeyValue('Target Mean Strength (fck\')', results.targetStrength?.targetMean, 'MPa');
-  report.addText(`Formula: fck' = fck + 1.65 × σ = ${results.targetStrength?.fck} + 1.65 × ${results.targetStrength?.stdDev} = ${results.targetStrength?.targetMean} MPa`);
+  report.addKeyValue('Target Mean Strength (fck\')', results.targetMeanStrength, 'MPa');
 
   report.addSubsectionTitle('2.2 Water-Cement Ratio');
-  report.addKeyValue('Maximum W/C (Durability)', results.wcRatio?.maxWCDurability);
-  report.addKeyValue('W/C for Target Strength', results.wcRatio?.wcForStrength);
-  report.addKeyValue('Adopted W/C Ratio', results.wcRatio?.adopted);
-
-  report.addSubsectionTitle('2.3 Water Content');
-  report.addKeyValue('Base Water Content', results.waterContent?.base, 'kg/m³');
-  if (results.waterContent?.slumpAdjustment) {
-    report.addKeyValue('Slump Adjustment', results.waterContent?.slumpAdjustment, 'kg/m³');
-  }
-  if (results.waterContent?.admixReduction) {
-    report.addKeyValue('Admixture Reduction', results.waterContent?.admixReduction, 'kg/m³');
-  }
-  report.addKeyValue('Final Water Content', results.waterContent?.final, 'kg/m³');
+  report.addKeyValue('Maximum W/C (Durability)', results.maxWCRatio);
+  report.addKeyValue('Adopted W/C Ratio', results.wcRatio);
 
   report.addSectionTitle('3. Mix Proportions (per m³)');
   const mixData = [
-    ['Water', results.mixPerCubicMeter?.water?.toFixed(1) || '-', 'kg'],
-    ['Cement', results.mixPerCubicMeter?.cement?.toFixed(1) || '-', 'kg'],
-    ['Fine Aggregate', results.mixPerCubicMeter?.fineAggregate?.toFixed(1) || '-', 'kg'],
-    ['Coarse Aggregate', results.mixPerCubicMeter?.coarseAggregate?.toFixed(1) || '-', 'kg']
+    ['Water', results.mixDesign?.water?.toFixed(1) || '-', 'kg'],
+    ['Cement', results.mixDesign?.cement?.toFixed(1) || '-', 'kg'],
+    ['Fine Aggregate', results.mixDesign?.fineAggregate?.toFixed(1) || '-', 'kg'],
+    ['Coarse Aggregate', results.mixDesign?.coarseAggregate?.toFixed(1) || '-', 'kg']
   ];
-  if (results.mixPerCubicMeter?.admixture) {
-    mixData.push(['Admixture', results.mixPerCubicMeter?.admixture?.toFixed(2) || '-', 'kg']);
+  if (results.mixDesign?.admixture > 0) {
+    mixData.push(['Admixture', results.mixDesign?.admixture?.toFixed(2) || '-', 'kg']);
   }
   report.addDataTable(['Material', 'Quantity', 'Unit'], mixData, { columnWidths: [60, 50, 40] });
 
   report.addSubsectionTitle('Mix Ratio (by weight)');
-  report.addKeyValue('Cement : FA : CA', results.mixRatio?.byWeight || '-');
-  report.addKeyValue('Water-Cement Ratio', results.wcRatio?.adopted?.toFixed(2) || '-');
+  const ratioStr = results.mixRatio ? 
+    `1 : ${results.mixRatio.fineAggregate} : ${results.mixRatio.coarseAggregate}` : '-';
+  report.addKeyValue('Cement : FA : CA', ratioStr);
+  report.addKeyValue('Water-Cement Ratio', results.wcRatio);
 
-  if (results.estimatedCost) {
+  if (results.costEstimate) {
     report.addSectionTitle('4. Cost Estimation');
-    report.addKeyValue('Estimated Cost per m³', results.estimatedCost, '₹');
+    report.addKeyValue('Estimated Cost per m³', results.costEstimate.total, '₹');
   }
 
   // Add chart if provided
@@ -618,100 +606,160 @@ export function generateConcreteReport(inputs, results, chartImage = null) {
 /**
  * Generate CPM/PERT Analysis Report
  */
-export function generateCPMReport(activities, results, analysisType = 'cpm', ganttImage = null) {
+export function generateCPMReport(activities, results, analysisType = 'CPM', ganttImage = null) {
   const report = new ReportGenerator();
-  const title = analysisType.toUpperCase() === 'PERT' 
+  const isPERT = analysisType.toUpperCase() === 'PERT';
+  const title = isPERT 
     ? 'PERT Analysis Report' 
     : 'Critical Path Method (CPM) Report';
   report.initialize(title);
 
+  // Section 1: Project Activities
   report.addSectionTitle('1. Project Activities');
-  const activityData = activities.map((act, idx) => [
-    idx + 1,
-    act.id || act.name,
-    act.name,
-    (act.predecessors || []).join(', ') || '-',
-    analysisType === 'pert' 
-      ? `${act.optimistic || '-'}/${act.mostLikely || act.duration}/${act.pessimistic || '-'}`
-      : act.duration
-  ]);
+  const activityData = activities.map((act, idx) => {
+    const predecessors = typeof act.predecessors === 'string' 
+      ? act.predecessors 
+      : (act.predecessors || []).join(', ');
+    
+    if (isPERT) {
+      return [
+        act.id || String.fromCharCode(65 + idx),
+        act.name,
+        predecessors || '-',
+        act.optimistic || '-',
+        act.mostLikely || act.duration || '-',
+        act.pessimistic || '-',
+        act.cost ? `₹${act.cost.toLocaleString()}` : '-'
+      ];
+    } else {
+      return [
+        act.id || String.fromCharCode(65 + idx),
+        act.name,
+        predecessors || '-',
+        act.duration,
+        act.cost ? `₹${act.cost.toLocaleString()}` : '-'
+      ];
+    }
+  });
   
-  const headers = analysisType === 'pert'
-    ? ['#', 'ID', 'Activity', 'Predecessors', 'Duration (O/M/P)']
-    : ['#', 'ID', 'Activity', 'Predecessors', 'Duration'];
+  const headers = isPERT
+    ? ['ID', 'Activity', 'Pred.', 'Opt.', 'M.L.', 'Pess.', 'Cost']
+    : ['ID', 'Activity', 'Predecessors', 'Duration (days)', 'Cost'];
   
-  report.addDataTable(headers, activityData, { columnWidths: [15, 20, 60, 40, 40] });
+  const columnWidths = isPERT 
+    ? [15, 50, 25, 18, 18, 18, 30]
+    : [15, 60, 35, 30, 30];
+  
+  report.addDataTable(headers, activityData, { columnWidths });
 
+  // Section 2: Network Analysis Results
   report.addSectionTitle('2. Network Analysis Results');
   
-  if (results.activities && results.activities.length > 0) {
-    const scheduleData = results.activities.map(act => [
-      act.id || act.name,
-      act.ES?.toFixed(1) || '0',
-      act.EF?.toFixed(1) || act.duration?.toString(),
-      act.LS?.toFixed(1) || '0',
-      act.LF?.toFixed(1) || act.duration?.toString(),
-      act.TF?.toFixed(1) || act.totalFloat?.toFixed(1) || '0',
+  // Use resultsTable if available (more complete data)
+  const tableData = results.resultsTable || results.activities;
+  
+  if (tableData && tableData.length > 0) {
+    const scheduleData = tableData.map(act => [
+      act.id,
+      act.name || '-',
+      (act.duration || act.EF - act.ES || 0).toString(),
+      (act.ES ?? 0).toString(),
+      (act.EF ?? 0).toString(),
+      (act.LS ?? 0).toString(),
+      (act.LF ?? 0).toString(),
+      (act.totalFloat ?? act.TF ?? 0).toString(),
       act.isCritical ? '✓' : '-'
     ]);
     
     report.addDataTable(
-      ['Activity', 'ES', 'EF', 'LS', 'LF', 'Float', 'Critical'],
+      ['ID', 'Activity', 'Dur.', 'ES', 'EF', 'LS', 'LF', 'Float', 'Critical'],
       scheduleData,
-      { columnWidths: [30, 20, 20, 20, 20, 25, 25] }
+      { columnWidths: [15, 45, 18, 18, 18, 18, 18, 18, 20] }
     );
   }
 
-  report.addSectionTitle('3. Critical Path');
-  report.addKeyValue('Project Duration', results.projectDuration, 'days');
+  // Section 3: Critical Path Summary
+  report.addSectionTitle('3. Critical Path Summary');
+  report.addKeyValue('Total Project Duration', results.projectDuration || 0, 'days');
   
-  if (results.criticalPath) {
-    const cpText = Array.isArray(results.criticalPath) 
-      ? results.criticalPath.join(' → ') 
-      : results.criticalPath;
-    report.addKeyValue('Critical Path', cpText);
+  const criticalActivities = results.criticalActivities || results.criticalPath || [];
+  const cpText = Array.isArray(criticalActivities) 
+    ? criticalActivities.join(' → ') 
+    : criticalActivities;
+  report.addKeyValue('Critical Path', cpText || 'N/A');
+  report.addKeyValue('Number of Critical Activities', 
+    (Array.isArray(criticalActivities) ? criticalActivities.length : 0).toString());
+
+  // Section 4: Cost Analysis (if available)
+  if (results.costAnalysis) {
+    report.addSectionTitle('4. Cost Analysis');
+    report.addKeyValue('Total Project Cost', `₹${(results.costAnalysis.totalCost || 0).toLocaleString()}`);
+    report.addKeyValue('Critical Path Cost', `₹${(results.costAnalysis.criticalCost || 0).toLocaleString()}`);
+    report.addKeyValue('Non-Critical Cost', `₹${(results.costAnalysis.nonCriticalCost || 0).toLocaleString()}`);
   }
 
-  if (analysisType === 'pert' && results.probabilityAnalysis) {
-    report.addSectionTitle('4. Probability Analysis (PERT)');
+  // Section 5: PERT Probability Analysis
+  if (isPERT && results.probabilityAnalysis) {
+    const sectionNum = results.costAnalysis ? '5' : '4';
+    report.addSectionTitle(`${sectionNum}. Probability Analysis (PERT)`);
     report.addKeyValue('Expected Duration (Te)', results.projectDuration, 'days');
-    report.addKeyValue('Project Variance (σ²)', results.probabilityAnalysis.variance?.toFixed(2) || '-');
-    report.addKeyValue('Standard Deviation (σ)', results.probabilityAnalysis.stdDev?.toFixed(2) || '-', 'days');
+    report.addKeyValue('Project Variance (σ²)', (results.probabilityAnalysis.variance || 0).toFixed(2));
+    report.addKeyValue('Standard Deviation (σ)', (results.probabilityAnalysis.stdDev || 0).toFixed(2), 'days');
+    
+    report.addSubsectionTitle('Probability Estimates');
+    if (results.probabilityAnalysis.probability90) {
+      report.addKeyValue('90% Confidence Duration', results.probabilityAnalysis.probability90?.toFixed(1) || '-', 'days');
+    }
+    if (results.probabilityAnalysis.probability95) {
+      report.addKeyValue('95% Confidence Duration', results.probabilityAnalysis.probability95?.toFixed(1) || '-', 'days');
+    }
+    if (results.probabilityAnalysis.probability99) {
+      report.addKeyValue('99% Confidence Duration', results.probabilityAnalysis.probability99?.toFixed(1) || '-', 'days');
+    }
     
     if (results.probabilityAnalysis.confidenceIntervals) {
       report.addSubsectionTitle('Confidence Intervals');
-      report.addKeyValue('68% Probability (±1σ)', 
-        `${results.probabilityAnalysis.confidenceIntervals['68%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['68%']?.max?.toFixed(1)}`, 
-        'days'
-      );
-      report.addKeyValue('95% Probability (±2σ)', 
-        `${results.probabilityAnalysis.confidenceIntervals['95%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['95%']?.max?.toFixed(1)}`, 
-        'days'
-      );
-      report.addKeyValue('99.7% Probability (±3σ)', 
-        `${results.probabilityAnalysis.confidenceIntervals['99.7%']?.min?.toFixed(1)} - ${results.probabilityAnalysis.confidenceIntervals['99.7%']?.max?.toFixed(1)}`, 
-        'days'
-      );
+      const ci = results.probabilityAnalysis.confidenceIntervals;
+      if (ci['68%']) {
+        report.addKeyValue('68% Probability (±1σ)', 
+          `${ci['68%'].min?.toFixed(1)} - ${ci['68%'].max?.toFixed(1)}`, 'days');
+      }
+      if (ci['95%']) {
+        report.addKeyValue('95% Probability (±2σ)', 
+          `${ci['95%'].min?.toFixed(1)} - ${ci['95%'].max?.toFixed(1)}`, 'days');
+      }
+      if (ci['99.7%']) {
+        report.addKeyValue('99.7% Probability (±3σ)', 
+          `${ci['99.7%'].min?.toFixed(1)} - ${ci['99.7%'].max?.toFixed(1)}`, 'days');
+      }
     }
   }
 
   // Add Gantt chart if provided
   if (ganttImage) {
-    report.addSectionTitle(analysisType === 'pert' ? '5. Gantt Chart' : '4. Gantt Chart');
+    const chartSectionNum = isPERT 
+      ? (results.costAnalysis ? '6' : '5') 
+      : (results.costAnalysis ? '5' : '4');
+    report.addSectionTitle(`${chartSectionNum}. Gantt Chart`);
     report.addChartImage(ganttImage, {
       width: 170,
-      height: 90,
+      height: 100,
       caption: 'Figure 1: Project Schedule - Gantt Chart'
     });
   }
 
-  report.addSectionTitle('Notes');
+  // Notes section
+  report.addSectionTitle('Notes & Definitions');
   report.addText('ES = Early Start, EF = Early Finish, LS = Late Start, LF = Late Finish');
-  report.addText('Float = Total Float (Slack) = LS - ES = LF - EF');
-  report.addText('Critical activities have zero float and determine the minimum project duration');
-  if (analysisType === 'pert') {
-    report.addText('PERT uses weighted average: Te = (O + 4M + P) / 6');
-    report.addText('Variance for each activity: σ² = ((P - O) / 6)²');
+  report.addText('Total Float = LS - ES = LF - EF (time an activity can be delayed without delaying project)');
+  report.addText('Critical Path = longest path through the network, determines minimum project duration');
+  report.addText('Critical Activities (marked ✓) have zero float and cannot be delayed');
+  if (isPERT) {
+    report.addSpacing(5);
+    report.addText('PERT Formulas:');
+    report.addText('Expected Time (Te) = (Optimistic + 4 × Most Likely + Pessimistic) / 6');
+    report.addText('Variance (σ²) = ((Pessimistic - Optimistic) / 6)²');
+    report.addText('Standard Deviation (σ) = √(Sum of critical path variances)');
   }
 
   return report;

@@ -12,8 +12,8 @@ import {
   Zap,
   Lock,
   Download,
-  Boxes,
-  Network
+  Box,
+  GitBranch
 } from 'lucide-react';
 
 const modules = [
@@ -81,7 +81,7 @@ const modules = [
     id: 'concrete',
     title: 'Concrete Technology',
     description: 'IS 10262:2019 concrete mix design, trial mix calculations, cost estimation',
-    icon: Boxes,
+    icon: Box,
     path: '/concrete',
     color: 'from-slate-500 to-slate-700',
     bgColor: 'bg-slate-50',
@@ -91,7 +91,7 @@ const modules = [
     id: 'construction',
     title: 'Construction Management',
     description: 'CPM/PERT network analysis, critical path, project scheduling',
-    icon: Network,
+    icon: GitBranch,
     path: '/construction',
     color: 'from-rose-500 to-rose-700',
     bgColor: 'bg-rose-50',

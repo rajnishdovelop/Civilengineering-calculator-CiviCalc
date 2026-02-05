@@ -8,7 +8,7 @@ export function FormInput({
   name, 
   value, 
   onChange, 
-  type = 'number',
+  type = 'text',
   unit = '',
   placeholder = '',
   min,
@@ -17,8 +17,10 @@ export function FormInput({
   required = false,
   disabled = false,
   className = '',
-  helpText = ''
+  helpText = '',
+  helperText = ''
 }) {
+  const displayHelp = helpText || helperText;
   return (
     <div className={`form-group ${className}`}>
       <label htmlFor={name} className="form-label">
@@ -35,12 +37,12 @@ export function FormInput({
         placeholder={placeholder}
         min={min}
         max={max}
-        step={step}
+        step={type === 'number' ? step : undefined}
         required={required}
         disabled={disabled}
         className="form-input"
       />
-      {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
+      {displayHelp && <p className="text-xs text-gray-500 mt-1">{displayHelp}</p>}
     </div>
   );
 }
@@ -182,6 +184,17 @@ export function Button({
     lg: 'px-6 py-3 text-lg'
   };
 
+  // Handle icon as either a component or a rendered element
+  const renderIcon = () => {
+    if (!Icon) return null;
+    // If it's already a React element (JSX), render it directly
+    if (React.isValidElement(Icon)) {
+      return <span className="mr-2">{Icon}</span>;
+    }
+    // If it's a component, render it as a component
+    return <Icon className="w-4 h-4 mr-2" />;
+  };
+
   return (
     <button
       type={type}
@@ -191,9 +204,7 @@ export function Button({
     >
       {loading ? (
         <span className="spinner mr-2" />
-      ) : Icon ? (
-        <Icon className="w-4 h-4 mr-2" />
-      ) : null}
+      ) : renderIcon()}
       {children}
     </button>
   );
@@ -305,17 +316,3 @@ export function Badge({ children, variant = 'default' }) {
     </span>
   );
 }
-
-export default {
-  FormInput,
-  FormSelect,
-  FormTextarea,
-  ResultDisplay,
-  ResultGrid,
-  Button,
-  Card,
-  Tabs,
-  Alert,
-  Spinner,
-  Badge
-};

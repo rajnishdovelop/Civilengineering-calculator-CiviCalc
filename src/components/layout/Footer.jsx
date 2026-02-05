@@ -63,6 +63,16 @@ function Footer() {
                   Surveying
                 </Link>
               </li>
+              <li>
+                <Link to="/concrete" className="text-gray-300 hover:text-white transition-colors text-sm">
+                  Concrete Mix Design
+                </Link>
+              </li>
+              <li>
+                <Link to="/construction" className="text-gray-300 hover:text-white transition-colors text-sm">
+                  CPM/PERT Analysis
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -113,7 +123,10 @@ function Footer() {
           <p className="text-gray-400 text-sm">
             © {currentYear} CiviCalc. Built with{' '}
             <Heart className="w-4 h-4 inline text-red-500 fill-current" /> by{' '}
-            <span className="text-white font-medium">Concreate Club, IIT Indore</span>
+            <span className="text-white font-medium">Rajnish</span>
+          </p>
+          <p className="text-gray-500 text-xs mt-2 sm:mt-0">
+            Powered by Concreate Club, IIT Indore
           </p>
           <div className="flex items-center space-x-4 mt-4 sm:mt-0">
             <span className="text-xs text-gray-500">

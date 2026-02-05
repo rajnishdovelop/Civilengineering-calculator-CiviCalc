@@ -57,6 +57,14 @@ export class BeamAnalyzer {
   }
   
   /**
+   * Set support type
+   * @param {string} type - Support type from SUPPORT_TYPES enum
+   */
+  setSupportType(type) {
+    this.supportType = type || SUPPORT_TYPES.SIMPLY_SUPPORTED;
+  }
+
+  /**
    * Set support positions for overhanging beams
    * @param {number} a - Position of left support
    * @param {number} b - Position of right support

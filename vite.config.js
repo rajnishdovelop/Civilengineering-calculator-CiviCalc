@@ -22,7 +22,7 @@ export default defineConfig({
         manualChunks: {
           // Split vendor chunks for better caching
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          plotly: ['plotly.js', 'react-plotly.js'],
+          plotly: ['plotly.js-dist-min', 'react-plotly.js'],
           math: ['mathjs'],
           pdf: ['jspdf', 'jspdf-autotable'],
           ui: ['lucide-react', 'zustand']
@@ -36,7 +36,6 @@ export default defineConfig({
     reportCompressedSize: false
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'mathjs'],
-    exclude: ['plotly.js'] // Let plotly load async
+    include: ['react', 'react-dom', 'mathjs', 'plotly.js-dist-min']
   }
 })

@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Plus, Trash2, Calculator, FileDown, RotateCcw, HardHat, Network, BarChart3, Calendar, AlertTriangle, Clock, DollarSign } from 'lucide-react';
 import { cpmAnalysis, pertAnalysis, costAnalysis } from '../utils/calculators/construction';
 import AnalysisGraph from '../components/charts/AnalysisGraph';
 import { FormInput, FormSelect, Button, Card, ResultDisplay, Tabs, Alert } from '../components/ui/FormElements';
 import { useConstructionStore } from '../store';
 import { generateCPMReport } from '../utils/reportGenerator';
+import Plotly from 'plotly.js-dist-min';
 
 function ConstructionPage() {
   const {
@@ -29,6 +30,8 @@ function ConstructionPage() {
   const [activeTab, setActiveTab] = useState('input');
   const [error, setError] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const ganttChartRef = useRef(null);
   const [newActivity, setNewActivity] = useState({
     name: '',
     duration: 0,
@@ -106,8 +109,32 @@ function ConstructionPage() {
 
   const handleExportPDF = async () => {
     if (!results) return;
-    const report = generateCPMReport(results, { projectName, startDate, activities, analysisType });
-    report.download(`CiviCalc_${analysisType}_Analysis.pdf`);
+    
+    setIsExporting(true);
+    try {
+      // Try to capture Gantt chart image
+      let ganttImage = null;
+      try {
+        const ganttElement = document.querySelector('.gantt-chart-container .js-plotly-plot');
+        if (ganttElement) {
+          ganttImage = await Plotly.toImage(ganttElement, {
+            format: 'png',
+            width: 1000,
+            height: 500,
+            scale: 2
+          });
+        }
+      } catch (chartError) {
+        console.warn('Could not capture Gantt chart:', chartError);
+      }
+
+      const report = generateCPMReport(activities, results, analysisType, ganttImage);
+      report.download(`CiviCalc_${analysisType}_Analysis_${projectName.replace(/\s+/g, '_')}.pdf`);
+    } catch (err) {
+      setError('Failed to export PDF: ' + err.message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleReset = () => {
@@ -213,8 +240,10 @@ function ConstructionPage() {
                   <FormInput
                     label="Project Name"
                     name="projectName"
+                    type="text"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="Enter project name"
                   />
                   
                   <FormSelect
@@ -577,8 +606,13 @@ function ConstructionPage() {
               <Button variant="outline" onClick={() => setActiveTab('input')}>
                 Modify Activities
               </Button>
-              <Button onClick={handleExportPDF} icon={<FileDown className="w-4 h-4" />}>
-                Export PDF Report
+              <Button 
+                onClick={handleExportPDF} 
+                icon={<FileDown className="w-4 h-4" />}
+                loading={isExporting}
+                disabled={isExporting}
+              >
+                {isExporting ? 'Generating PDF...' : 'Export PDF Report'}
               </Button>
             </div>
           </div>
@@ -588,27 +622,39 @@ function ConstructionPage() {
         {activeTab === 'gantt' && results && (
           <Card title="Gantt Chart">
             <div className="mb-4">
-              <div className="flex items-center space-x-4 text-sm">
-                <span className="flex items-center space-x-2">
-                  <span className="w-4 h-4 bg-red-500 rounded"></span>
-                  <span>Critical Activity</span>
-                </span>
-                <span className="flex items-center space-x-2">
-                  <span className="w-4 h-4 bg-blue-500 rounded"></span>
-                  <span>Non-Critical Activity</span>
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="flex items-center space-x-2">
+                    <span className="w-4 h-4 bg-red-500 rounded"></span>
+                    <span>Critical Activity</span>
+                  </span>
+                  <span className="flex items-center space-x-2">
+                    <span className="w-4 h-4 bg-blue-500 rounded"></span>
+                    <span>Non-Critical Activity</span>
+                  </span>
+                </div>
+                <Button 
+                  onClick={handleExportPDF} 
+                  icon={<FileDown className="w-4 h-4" />}
+                  size="sm"
+                  loading={isExporting}
+                  disabled={isExporting}
+                >
+                  Export PDF
+                </Button>
               </div>
             </div>
-            <AnalysisGraph
-              data={ganttChartData}
-              layout={{
-                barmode: 'stack',
-                xaxis: {
-                  title: 'Project Duration (Days)',
-                  showgrid: true
-                },
-                yaxis: {
-                  autorange: 'reversed',
+            <div className="gantt-chart-container">
+              <AnalysisGraph
+                data={ganttChartData}
+                layout={{
+                  barmode: 'stack',
+                  xaxis: {
+                    title: 'Project Duration (Days)',
+                    showgrid: true
+                  },
+                  yaxis: {
+                    autorange: 'reversed',
                   showgrid: false
                 },
                 showlegend: false,
@@ -617,6 +663,7 @@ function ConstructionPage() {
               height={Math.max(400, results.ganttData.length * 40)}
               title="Project Gantt Chart"
             />
+            </div>
           </Card>
         )}
 
